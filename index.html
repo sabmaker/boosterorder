@@ -791,13 +791,15 @@ const APP_ICON_BG = "#1565c0";
 
 // --- Download self for offline use ---
 document.getElementById("dlLink").addEventListener("click", () => {
-  const html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
-  const blob = new Blob([html], { type: "text/html" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "BoosterOrder.html";
-  a.click();
-  URL.revokeObjectURL(a.href);
+  fetch(location.href)
+    .then(r => r.blob())
+    .then(blob => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "BoosterOrder.html";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
 });
 
 // --- Initial draw (sort choice is also remembered) ---
