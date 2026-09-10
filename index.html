@@ -383,6 +383,18 @@
 
   .tile.hidden { display: none; }
 
+  .dl-link {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 16px 0 4px;
+    font-size: 13px;
+  }
+  .dl-link a {
+    color: var(--muted);
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
   .name {
     font-size: 15px;
     font-weight: 600;
@@ -466,6 +478,7 @@
 
 <main>
   <div class="grid" id="grid"></div>
+  <div class="dl-link"><a id="dlLink">Download for offline use</a></div>
 </main>
 
 <!-- Summary overlay -->
@@ -775,6 +788,17 @@ const APP_ICON_BG = "#1565c0";
   );
   document.head.appendChild(link);
 })();
+
+// --- Download self for offline use ---
+document.getElementById("dlLink").addEventListener("click", () => {
+  const html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+  const blob = new Blob([html], { type: "text/html" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "BoosterOrder.html";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
 
 // --- Initial draw (sort choice is also remembered) ---
 let savedSort = null;
