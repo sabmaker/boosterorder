@@ -478,7 +478,7 @@
 
 <main>
   <div class="grid" id="grid"></div>
-  <div class="dl-link"><a id="dlLink">Download for offline use</a></div>
+  <div class="dl-link" id="offlineHint"></div>
 </main>
 
 <!-- Summary overlay -->
@@ -789,18 +789,29 @@ const APP_ICON_BG = "#1565c0";
   document.head.appendChild(link);
 })();
 
-// --- Download self for offline use ---
-document.getElementById("dlLink").addEventListener("click", () => {
-  fetch(location.href)
-    .then(r => r.blob())
-    .then(blob => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "BoosterOrder.html";
-      a.click();
-      URL.revokeObjectURL(a.href);
+// --- Offline hint: iOS gets home-screen instructions, others get download ---
+(function offlineHint() {
+  const hint = document.getElementById("offlineHint");
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+  if (isIOS) {
+    hint.innerHTML = 'For offline use: tap <strong>Share</strong> (&#9759;) then <strong>Add to Home Screen</strong>';
+  } else {
+    hint.innerHTML = '<a id="dlLink">Download for offline use</a>';
+    document.getElementById("dlLink").addEventListener("click", () => {
+      fetch(location.href)
+        .then(r => r.blob())
+        .then(blob => {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "BoosterOrder.html";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
     });
-});
+  }
+})();
 
 // --- Initial draw (sort choice is also remembered) ---
 let savedSort = null;
