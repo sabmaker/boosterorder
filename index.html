@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#1565c0" id="themeColor">
+<title>Booster Order</title>
+
+<!-- Home screen / PWA install support. Icon + manifest are generated at
+     runtime (bottom of the script) so this stays a single portable file. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Booster Order">
+<meta name="application-name" content="Booster Order">
+<link rel="apple-touch-icon" href="">
+<link rel="icon" href="">
+<style>
+  /* ============================================================
+     THEME COLORS
+     ============================================================ */
+  :root {
+    --bg:        #f2f4f7;
+    --card:      #ffffff;
+    --text:      #14181f;
+    --muted:     #5c6675;
+    --border:    #d6dbe3;
+    --accent:    #1565c0;
+    --accent-fg: #ffffff;
+    --active-bg: #e3f0ff;
+    --danger:    #c62828;
+    --shadow:    0 1px 3px rgba(0,0,0,.12);
+  }
+  html[data-theme="dark"] {
+    --bg:        #12151a;
+    --card:      #1c2027;
+    --text:      #e8ecf2;
+    --muted:     #98a2b1;
+    --border:    #2e3540;
+    --accent:    #4c9aff;
+    --accent-fg: #0b0e12;
+    --active-bg: #16304f;
+    --danger:    #ef5350;
+    --shadow:    0 1px 3px rgba(0,0,0,.5);
+  }
+
+  /* touch-action: manipulation kills iOS double-tap-to-zoom
+     (Safari ignores user-scalable=no in the viewport meta) */
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- Top bar (fixed) ---------- */
+  header {
+    flex: 0 0 auto;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
+    z-index: 10;
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .total-block {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .total-label {
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    line-height: 1;
+  }
+
+  .total-value {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .total-count {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1;
+  }
+
+  .btn {
+    flex: 0 0 auto;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .btn:active { transform: scale(.96); }
+
+  .btn-icon {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 20px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-clear {
+    border-color: var(--danger);
+    color: var(--danger);
+    height: 44px;
+  }
+
+  /* ---------- Sort toggle ---------- */
+  .seg {
+    display: flex;
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .seg button {
+    flex: 1 1 0;
+    padding: 10px 6px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    background: var(--card);
+    color: var(--muted);
+    border: 0;
+    cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+
+  .collapse-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .collapse-row[hidden] { display: none; }
+
+  .btn-sm {
+    padding: 7px 14px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .summary-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+  }
+  .btn-summary {
+    min-width: 60%;
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ---------- Summary overlay ---------- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0,0,0,.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .overlay[hidden] { display: none; }
+
+  .sheet {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.35);
+    width: 100%;
+    max-width: 460px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sheet-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 12px 12px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sheet-title { flex: 1 1 auto; font-size: 18px; font-weight: 700; }
+
+  .sheet-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 16px;
+  }
+
+  .line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .line:last-child { border-bottom: 0; }
+
+  .line-qty {
+    flex: 0 0 auto;
+    min-width: 34px;
+    text-align: center;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: var(--accent);
+    color: var(--accent-fg);
+    border-radius: 8px;
+    padding: 3px 6px;
+  }
+  .line-name { flex: 1 1 auto; font-size: 15px; }
+  .line-name small { display: block; color: var(--muted); font-size: 12px; }
+  .line-amt { flex: 0 0 auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 32px 0;
+  }
+
+  .sheet-foot {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+  }
+  #sheetTotal {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Scrolling item list ---------- */
+  main {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .tile {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 12px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transition: border-color .12s, background .12s;
+  }
+
+  .tile.has-qty {
+    border-color: var(--accent);
+    background: var(--active-bg);
+  }
+
+  .tile-tap {
+    width: 100%;
+    background: none;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    padding: 4px 0 2px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .tile-tap:active { transform: scale(.97); }
+
+  .symbol {
+    font-size: 36px;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .cat-head {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+    padding: 10px 4px;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    cursor: pointer;
+  }
+  .cat-head:active { opacity: .6; }
+
+  .cat-chev {
+    font-size: 11px;
+    transition: transform .15s ease;
+  }
+  .cat-head[aria-expanded="false"] .cat-chev { transform: rotate(-90deg); }
+
+  .cat-name { flex: 1 1 auto; }
+
+  .cat-badge {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-variant-numeric: tabular-nums;
+  }
+  .cat-badge:empty { display: none; }
+
+  .tile.hidden { display: none; }
+
+  .name {
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .price {
+    font-size: 13px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .qty-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    margin-top: 2px;
+  }
+
+  .qty-btn {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .qty-btn:active { transform: scale(.92); }
+  .qty-btn:disabled { opacity: .35; cursor: default; }
+
+  .qty-plus {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-fg);
+  }
+
+  .qty-num {
+    flex: 1 1 auto;
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <div class="total-block">
+      <div class="total-label">Total</div>
+      <div class="total-value" id="total">$0.00</div>
+      <div class="total-count" id="count">0 items</div>
+    </div>
+    <button class="btn btn-clear" id="clearBtn" type="button">Clear</button>
+    <button class="btn btn-icon" id="themeBtn" type="button" title="Toggle light/dark">🌙</button>
+  </div>
+  <div class="seg" id="sortSeg">
+    <button type="button" data-sort="item">Sort: Item</button>
+    <button type="button" data-sort="category">Sort: Category</button>
+  </div>
+  <div class="collapse-row" id="collapseRow">
+    <button class="btn btn-sm" type="button" data-all="collapse">Collapse All</button>
+    <button class="btn btn-sm" type="button" data-all="expand">Expand All</button>
+  </div>
+  <div class="summary-row">
+    <button class="btn btn-summary" id="summaryBtn" type="button">📋 Summary</button>
+  </div>
+</header>
+
+<main>
+  <div class="grid" id="grid"></div>
+</main>
+
+<!-- Summary overlay -->
+<div class="overlay" id="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="Order summary">
+    <div class="sheet-head">
+      <span class="sheet-title">Order Summary</span>
+      <button class="btn btn-icon" id="closeBtn" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+    <div class="sheet-foot">
+      <span>Total</span>
+      <span id="sheetTotal">$0.00</span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   ITEM LIST — edit / add items here.
+   Each item: { name: "...", price: 0.00, symbol: "X" }
+   ================================================================ */
+const ITEMS = [
+  { name: "Burger",              category: "Entree", price: 5.00, symbol: "🍔"   },
+  { name: "Cheese Burger",       category: "Entree", price: 5.00, symbol: "🍔🧀" },
+  { name: "Hot Dog",             category: "Entree", price: 3.00, symbol: "🌭"   },
+  { name: "Chick Filet (Card)",  category: "Entree", price: 5.60, symbol: "🐔💳" },  // includes $0.40 tip
+  { name: "Chick Filet (Cash, $0.40 tip)",  category: "Entree", price: 6.00, symbol: "🐔💵" },  // includes $0.40 tip
+
+  { name: "Skittles - Red",      category: "Candy",  price: 2.00, symbol: "🍬🔴" },
+  { name: "Skittles - Purple",   category: "Candy",  price: 2.00, symbol: "🍬🟣" },
+  { name: "Skittles - Green",    category: "Candy",  price: 2.00, symbol: "🍬🟢" },
+  { name: "Cotton Candy - Pink", category: "Candy",  price: 3.00, symbol: "🍭💗" },
+  { name: "Cotton Candy - Blue", category: "Candy",  price: 3.00, symbol: "🍭💙" },
+
+  { name: "Doritos",             category: "Chips",  price: 1.00, symbol: "🔺"   },
+  { name: "Cheetos",             category: "Chips",  price: 1.00, symbol: "🧡"   },
+  { name: "Lays",                category: "Chips",  price: 1.00, symbol: "🥔"   },
+
+  { name: "Gatorade - Red",      category: "Drink",  price: 3.00, symbol: "⚡🔴" },
+  { name: "Gatorade - Blue",     category: "Drink",  price: 3.00, symbol: "⚡🔵" },
+  { name: "Gatorade - Zero",     category: "Drink",  price: 3.00, symbol: "⚡⚪" },
+  { name: "Pepsi",               category: "Drink",  price: 3.00, symbol: "🥤🔵" },
+  { name: "Pepsi (Diet)",        category: "Drink",  price: 3.00, symbol: "🥤⚪" },
+  { name: "Mountain Dew",        category: "Drink",  price: 3.00, symbol: "🏔️🟢" },
+  { name: "Mountain Dew (Diet)", category: "Drink",  price: 3.00, symbol: "🏔️⚪" },
+  { name: "Water",               category: "Drink",  price: 2.00, symbol: "💧"   },
+
+  { name: "Pickle",              category: "Snack",  price: 1.00, symbol: "🥒"   },
+  { name: "Popcorn",             category: "Snack",  price: 1.00, symbol: "🍿"   },
+  { name: "Pretzel",             category: "Snack",  price: 3.00, symbol: "🥨"   },
+];
+
+/* ================================================================
+   App code — no need to edit below this line.
+   ================================================================ */
+const qty = ITEMS.map(() => 0);
+
+let sortMode = "category";
+let collapsed = new Set();
+try {
+  collapsed = new Set(JSON.parse(localStorage.getItem("boosterOrderCollapsed")) || []);
+} catch (e) {}
+
+const grid     = document.getElementById("grid");
+const totalEl  = document.getElementById("total");
+const countEl  = document.getElementById("count");
+const clearBtn = document.getElementById("clearBtn");
+const themeBtn = document.getElementById("themeBtn");
+const sortSeg  = document.getElementById("sortSeg");
+const collapseRow = document.getElementById("collapseRow");
+const summaryBtn = document.getElementById("summaryBtn");
+const overlay    = document.getElementById("overlay");
+const closeBtn   = document.getElementById("closeBtn");
+const sheetBody  = document.getElementById("sheetBody");
+const sheetTotal = document.getElementById("sheetTotal");
+
+const money = n => "$" + n.toFixed(2);
+
+// --- Build tiles in the chosen sort order ---
+function buildGrid(mode) {
+  const order = ITEMS.map((item, i) => i).sort((a, b) => {
+    if (mode === "category") {
+      const c = ITEMS[a].category.localeCompare(ITEMS[b].category);
+      if (c !== 0) return c;
+    }
+    return ITEMS[a].name.localeCompare(ITEMS[b].name);
+  });
+
+  grid.innerHTML = "";
+  let lastCat = null;
+
+  order.forEach(i => {
+    const item = ITEMS[i];
+
+    if (mode === "category" && item.category !== lastCat) {
+      lastCat = item.category;
+      const head = document.createElement("button");
+      head.className = "cat-head";
+      head.type = "button";
+      head.dataset.cat = item.category;
+      head.innerHTML = `
+        <span class="cat-chev">▼</span>
+        <span class="cat-name">${item.category}</span>
+        <span class="cat-badge"></span>`;
+      grid.appendChild(head);
+    }
+
+    const tile = document.createElement("div");
+    tile.className = "tile";
+    tile.dataset.index = i;
+    tile.dataset.cat = item.category;
+    tile.innerHTML = `
+      <button class="tile-tap" type="button" data-act="add">
+        <span class="symbol">${item.symbol}</span>
+        <span class="name">${item.name}</span>
+        <span class="price">${money(item.price)}</span>
+      </button>
+      <div class="qty-row">
+        <button class="qty-btn qty-minus" type="button" data-act="sub" aria-label="Remove one ${item.name}">−</button>
+        <span class="qty-num">0</span>
+        <button class="qty-btn qty-plus" type="button" data-act="add" aria-label="Add one ${item.name}">+</button>
+      </div>`;
+    grid.appendChild(tile);
+  });
+
+  sortSeg.querySelectorAll("button").forEach(b => {
+    b.setAttribute("aria-pressed", b.dataset.sort === mode);
+  });
+
+  try { localStorage.setItem("boosterOrderSort", mode); } catch (e) {}
+  sortMode = mode;
+  collapseRow.hidden = mode !== "category";
+  render();
+}
+
+// --- Collapse / expand categories ---
+function saveCollapsed() {
+  try {
+    localStorage.setItem("boosterOrderCollapsed", JSON.stringify([...collapsed]));
+  } catch (e) {}
+  render();
+}
+
+function toggleCat(cat) {
+  if (collapsed.has(cat)) collapsed.delete(cat);
+  else collapsed.add(cat);
+  saveCollapsed();
+}
+
+collapseRow.addEventListener("click", e => {
+  const btn = e.target.closest("[data-all]");
+  if (!btn) return;
+  if (btn.dataset.all === "collapse") ITEMS.forEach(item => collapsed.add(item.category));
+  else collapsed.clear();
+  saveCollapsed();
+});
+
+sortSeg.addEventListener("click", e => {
+  const btn = e.target.closest("[data-sort]");
+  if (btn) buildGrid(btn.dataset.sort);
+});
+
+// --- Single delegated click handler ---
+grid.addEventListener("click", e => {
+  const head = e.target.closest(".cat-head");
+  if (head) { toggleCat(head.dataset.cat); return; }
+
+  const btn = e.target.closest("[data-act]");
+  if (!btn) return;
+  const i = Number(btn.closest(".tile").dataset.index);
+  qty[i] = Math.max(0, qty[i] + (btn.dataset.act === "add" ? 1 : -1));
+  render();
+});
+
+clearBtn.addEventListener("click", () => {
+  if (qty.some(q => q > 0) && !confirm("Clear the whole order?")) return;
+  qty.fill(0);
+  render();
+});
+
+// --- Summary overlay ---
+function openSummary() {
+  const picked = ITEMS
+    .map((item, i) => ({ item, n: qty[i] }))
+    .filter(r => r.n > 0)
+    .sort((a, b) => a.item.name.localeCompare(b.item.name));
+
+  let total = 0;
+  sheetBody.innerHTML = "";
+
+  if (!picked.length) {
+    sheetBody.innerHTML = '<div class="empty">Nothing selected yet.</div>';
+  } else {
+    picked.forEach(({ item, n }) => {
+      const amt = n * item.price;
+      total += amt;
+      const line = document.createElement("div");
+      line.className = "line";
+      line.innerHTML = `
+        <span class="line-qty">${n}</span>
+        <span class="line-name">${item.symbol} ${item.name}<small>${money(item.price)} each</small></span>
+        <span class="line-amt">${money(amt)}</span>`;
+      sheetBody.appendChild(line);
+    });
+  }
+
+  sheetTotal.textContent = money(total);
+  overlay.hidden = false;
+  sheetBody.scrollTop = 0;
+}
+
+function closeSummary() { overlay.hidden = true; }
+
+summaryBtn.addEventListener("click", openSummary);
+closeBtn.addEventListener("click", closeSummary);
+overlay.addEventListener("click", e => { if (e.target === overlay) closeSummary(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSummary(); });
+
+function render() {
+  let total = 0, count = 0;
+  const catQty = {};
+
+  grid.querySelectorAll(".tile").forEach(tile => {
+    const i = Number(tile.dataset.index);
+    const cat = tile.dataset.cat;
+    total += qty[i] * ITEMS[i].price;
+    count += qty[i];
+    catQty[cat] = (catQty[cat] || 0) + qty[i];
+
+    tile.querySelector(".qty-num").textContent = qty[i];
+    tile.querySelector(".qty-minus").disabled = qty[i] === 0;
+    tile.classList.toggle("has-qty", qty[i] > 0);
+    tile.classList.toggle("hidden", sortMode === "category" && collapsed.has(cat));
+  });
+
+  // Collapsed groups show a badge so hidden picks aren't forgotten
+  grid.querySelectorAll(".cat-head").forEach(head => {
+    const cat = head.dataset.cat;
+    const isOpen = !collapsed.has(cat);
+    head.setAttribute("aria-expanded", isOpen);
+    head.querySelector(".cat-badge").textContent =
+      !isOpen && catQty[cat] ? catQty[cat] : "";
+  });
+
+  totalEl.textContent = money(total);
+  countEl.textContent = count === 1 ? "1 item" : count + " items";
+}
+
+// --- Theme (saved between visits) ---
+function setTheme(mode) {
+  document.documentElement.dataset.theme = mode;
+  themeBtn.textContent = mode === "dark" ? "☀️" : "🌙";
+  // Keeps the phone's status/address bar matching the theme
+  document.getElementById("themeColor")
+    .setAttribute("content", mode === "dark" ? "#1c2027" : "#ffffff");
+  try { localStorage.setItem("boosterOrderTheme", mode); } catch (e) {}
+}
+
+let saved = null;
+try { saved = localStorage.getItem("boosterOrderTheme"); } catch (e) {}
+setTheme(saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"));
+
+themeBtn.addEventListener("click", () => {
+  setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+});
+
+/* --- Home screen icon + web manifest, built in-page ---------------
+   Keeps the app a single downloadable file: the icon is drawn on a
+   canvas and the manifest is served from a blob URL.
+   Change APP_ICON / APP_ICON_BG to restyle the home screen icon.     */
+const APP_ICON    = "🍔";
+const APP_ICON_BG = "#1565c0";
+
+(function installMeta() {
+  const size = 180;
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d");
+  g.fillStyle = APP_ICON_BG;
+  g.fillRect(0, 0, size, size);
+  g.font = '110px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(APP_ICON, size / 2, size / 2 + 6);
+  const icon = c.toDataURL("image/png");
+
+  document.querySelectorAll('link[rel="apple-touch-icon"], link[rel="icon"]')
+    .forEach(l => { l.href = icon; });
+
+  const manifest = {
+    name: "Booster Order",
+    short_name: "Order",
+    start_url: ".",
+    scope: ".",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#f2f4f7",
+    theme_color: APP_ICON_BG,
+    icons: [{ src: icon, sizes: `${size}x${size}`, type: "image/png", purpose: "any" }]
+  };
+
+  const link = document.createElement("link");
+  link.rel = "manifest";
+  link.href = URL.createObjectURL(
+    new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" })
+  );
+  document.head.appendChild(link);
+})();
+
+// --- Initial draw (sort choice is also remembered) ---
+let savedSort = null;
+try { savedSort = localStorage.getItem("boosterOrderSort"); } catch (e) {}
+buildGrid(savedSort === "item" ? "item" : "category");
+</script>
+</body>
+</html>
