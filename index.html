@@ -562,7 +562,7 @@
 <main>
   <div class="grid" id="grid"></div>
   <div class="dl-link" id="offlineHint"></div>
-  <div class="dl-link">v1.06</div>
+  <div class="dl-link">v1.07</div>
 </main>
 
 <!-- Summary overlay -->
@@ -660,6 +660,7 @@ searchClear.addEventListener("click", () => {
   searchInput.value = "";
   searchFilter = "";
   render();
+  searchInput.focus();
 });
 
 const money = n => "$" + n.toFixed(2);
