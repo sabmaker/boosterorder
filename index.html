@@ -258,6 +258,41 @@
   .line-name small { display: block; color: var(--muted); font-size: 12px; }
   .line-amt { flex: 0 0 auto; font-weight: 600; font-variant-numeric: tabular-nums; }
 
+  .line-edit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0 4px;
+  }
+  .line-edit[hidden] { display: none; }
+
+  .line-edit .qty-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .line-edit-qty {
+    min-width: 28px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .btn-del {
+    margin-left: auto;
+    border-color: var(--danger);
+    color: var(--danger);
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .btn-close-edit {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
   .empty {
     text-align: center;
     color: var(--muted);
@@ -479,7 +514,7 @@
 <main>
   <div class="grid" id="grid"></div>
   <div class="dl-link" id="offlineHint"></div>
-  <div class="dl-link">v1.04</div>
+  <div class="dl-link">v1.05</div>
 </main>
 
 <!-- Summary overlay -->
@@ -668,9 +703,9 @@ clearBtn.addEventListener("click", () => {
 });
 
 // --- Summary overlay ---
-function openSummary() {
+function buildSummary() {
   const picked = ITEMS
-    .map((item, i) => ({ item, n: qty[i] }))
+    .map((item, i) => ({ item, i, n: qty[i] }))
     .filter(r => r.n > 0)
     .sort((a, b) => a.item.name.localeCompare(b.item.name));
 
@@ -680,25 +715,76 @@ function openSummary() {
   if (!picked.length) {
     sheetBody.innerHTML = '<div class="empty">Nothing selected yet.</div>';
   } else {
-    picked.forEach(({ item, n }) => {
+    picked.forEach(({ item, i, n }) => {
       const amt = n * item.price;
       total += amt;
-      const line = document.createElement("div");
-      line.className = "line";
-      line.innerHTML = `
-        <span class="line-qty">${n}</span>
-        <span class="line-name">${item.symbol} ${item.name}<small>${money(item.price)} each</small></span>
-        <span class="line-amt">${money(amt)}</span>`;
-      sheetBody.appendChild(line);
+      const wrapper = document.createElement("div");
+      wrapper.dataset.idx = i;
+      wrapper.innerHTML = `
+        <div class="line" data-tap="expand">
+          <span class="line-qty">${n}</span>
+          <span class="line-name">${item.symbol} ${item.name}<small>${money(item.price)} each</small></span>
+          <span class="line-amt">${money(amt)}</span>
+        </div>
+        <div class="line-edit" hidden>
+          <button class="qty-btn qty-minus btn" type="button" data-act="sub">−</button>
+          <span class="line-edit-qty">${n}</span>
+          <button class="qty-btn qty-plus btn" type="button" data-act="add">+</button>
+          <button class="btn btn-del" type="button" data-act="del">Del</button>
+          <button class="btn btn-close-edit" type="button" data-act="close">✕</button>
+        </div>`;
+      sheetBody.appendChild(wrapper);
     });
   }
 
   sheetTotal.textContent = money(total);
+}
+
+function openSummary() {
+  buildSummary();
   overlay.hidden = false;
   sheetBody.scrollTop = 0;
 }
 
 function closeSummary() { overlay.hidden = true; }
+
+sheetBody.addEventListener("click", e => {
+  // Expand row on tap
+  const line = e.target.closest("[data-tap='expand']");
+  if (line) {
+    const edit = line.nextElementSibling;
+    edit.hidden = !edit.hidden;
+    return;
+  }
+
+  // Edit actions
+  const btn = e.target.closest("[data-act]");
+  if (!btn) return;
+  const wrapper = btn.closest("[data-idx]");
+  const i = Number(wrapper.dataset.idx);
+  const act = btn.dataset.act;
+
+  if (act === "close") {
+    wrapper.querySelector(".line-edit").hidden = true;
+    return;
+  }
+
+  if (act === "del") {
+    qty[i] = 0;
+  } else if (act === "add") {
+    qty[i]++;
+  } else if (act === "sub") {
+    qty[i] = Math.max(0, qty[i] - 1);
+  }
+
+  render();
+  buildSummary();
+  // Re-expand if item still exists
+  if (qty[i] > 0 && act !== "del") {
+    const w = sheetBody.querySelector(`[data-idx="${i}"]`);
+    if (w) w.querySelector(".line-edit").hidden = false;
+  }
+});
 
 summaryBtn.addEventListener("click", openSummary);
 closeBtn.addEventListener("click", closeSummary);
