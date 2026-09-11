@@ -461,6 +461,24 @@
 
   .tile.hidden, .cat-head.hidden { display: none; }
 
+  .tile.not-available {
+    opacity: .4;
+    pointer-events: none;
+    position: relative;
+  }
+  .tile.not-available::after {
+    content: "Not Available";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-15deg);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--danger);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
   .dl-link {
     grid-column: 1 / -1;
     text-align: center;
@@ -562,7 +580,7 @@
 <main>
   <div class="grid" id="grid"></div>
   <div class="dl-link" id="offlineHint"></div>
-  <div class="dl-link">v1.07</div>
+  <div class="dl-link">v1.08</div>
 </main>
 
 <!-- Summary overlay -->
@@ -586,40 +604,41 @@
    Each item: { name: "...", price: 0.00, symbol: "X" }
    ================================================================ */
 const ITEMS = [
-  { name: "Burger",              category: "Entree", price: 5.00, symbol: "🍔"   },
-  { name: "Cheese Burger",       category: "Entree", price: 5.00, symbol: "🍔🧀" },
-  { name: "Hot Dog",             category: "Entree", price: 3.00, symbol: "🌭"   },
-  { name: "Chick Filet (Card)",  category: "Entree", price: 5.60, symbol: "🐔💳" },  // includes $0.40 tip
-  { name: "Chick Filet (Cash, $0.40 tip)",  category: "Entree", price: 6.00, symbol: "🐔💵" },  // includes $0.40 tip
+  { name: "Burger",              category: "Entree", price: 5.00, symbol: "🍔",   na: false },
+  { name: "Cheese Burger",       category: "Entree", price: 5.00, symbol: "🍔🧀", na: false },
+  { name: "Hot Dog",             category: "Entree", price: 3.00, symbol: "🌭",   na: false },
+  { name: "Chick Filet (Card)",  category: "Entree", price: 5.60, symbol: "🐔💳", na: false },  // includes $0.40 tip
+  { name: "Chick Filet (Cash, $0.40 tip)",  category: "Entree", price: 6.00, symbol: "🐔💵", na: false },  // includes $0.40 tip
 
-  { name: "Skittles - Red",      category: "Candy",  price: 2.00, symbol: "🍬🔴" },
-  { name: "Skittles - Purple",   category: "Candy",  price: 2.00, symbol: "🍬🟣" },
-  { name: "Skittles - Green",    category: "Candy",  price: 2.00, symbol: "🍬🟢" },
-  { name: "Cotton Candy - Pink", category: "Candy",  price: 3.00, symbol: "🍭💗" },
-  { name: "Cotton Candy - Blue", category: "Candy",  price: 3.00, symbol: "🍭💙" },
-  { name: "Ring Pops",           category: "Candy",  price: 1.00, symbol: "💍🍬" },
-  { name: "Kit Kat",             category: "Candy",  price: 2.00, symbol: "🍫🔴" },
-  { name: "M & Ms",              category: "Candy",  price: 2.00, symbol: "🍫Ⓜ️" },
-  { name: "M & Ms Peanut",       category: "Candy",  price: 2.00, symbol: "🥜Ⓜ️" },
-  { name: "Reese Cups",          category: "Candy",  price: 2.00, symbol: "🥜🍫" },
-  { name: "Airhead Extreme",     category: "Candy",  price: 2.00, symbol: "🌈🍬" },
+  { name: "Skittles - Red",      category: "Candy",  price: 2.00, symbol: "🍬🔴", na: false },
+  { name: "Skittles - Purple",   category: "Candy",  price: 2.00, symbol: "🍬🟣", na: false },
+  { name: "Skittles - Green",    category: "Candy",  price: 2.00, symbol: "🍬🟢", na: false },
+  { name: "Cotton Candy - Pink", category: "Candy",  price: 3.00, symbol: "🍭💗", na: false },
+  { name: "Cotton Candy - Blue", category: "Candy",  price: 3.00, symbol: "🍭💙", na: false },
+  { name: "Ring Pops",           category: "Candy",  price: 1.00, symbol: "💍🍬", na: false },
+  { name: "Kit Kat",             category: "Candy",  price: 2.00, symbol: "🍫🔴", na: false },
+  { name: "M & Ms",              category: "Candy",  price: 2.00, symbol: "🍫Ⓜ️", na: false },
+  { name: "M & Ms Peanut",       category: "Candy",  price: 2.00, symbol: "🥜Ⓜ️", na: false },
+  { name: "Reese Cups",          category: "Candy",  price: 2.00, symbol: "🥜🍫", na: false },
+  { name: "Airhead Extreme",     category: "Candy",  price: 2.00, symbol: "🌈🍬", na: false },
 
-  { name: "Doritos",             category: "Chips",  price: 1.00, symbol: "🔺"   },
-  { name: "Cheetos",             category: "Chips",  price: 1.00, symbol: "🧡"   },
-  { name: "Lays",                category: "Chips",  price: 1.00, symbol: "🥔"   },
+  { name: "Doritos",             category: "Chips",  price: 1.00, symbol: "🔺",   na: false },
+  { name: "Cheetos",             category: "Chips",  price: 1.00, symbol: "🧡",   na: false },
+  { name: "Lays",                category: "Chips",  price: 1.00, symbol: "🥔",   na: false },
 
-  { name: "Gatorade - Red",      category: "Drink",  price: 3.00, symbol: "⚡🔴" },
-  { name: "Gatorade - Blue",     category: "Drink",  price: 3.00, symbol: "⚡🔵" },
-  { name: "Gatorade - Zero",     category: "Drink",  price: 3.00, symbol: "⚡⚪" },
-  { name: "Pepsi",               category: "Drink",  price: 3.00, symbol: "🥤🔵" },
-  { name: "Pepsi (Diet)",        category: "Drink",  price: 3.00, symbol: "🥤⚪" },
-  { name: "Mountain Dew",        category: "Drink",  price: 3.00, symbol: "🏔️🟢" },
-  { name: "Mountain Dew (Diet)", category: "Drink",  price: 3.00, symbol: "🏔️⚪" },
-  { name: "Water",               category: "Drink",  price: 2.00, symbol: "💧"   },
+  { name: "Gatorade - Red",      category: "Drink",  price: 3.00, symbol: "⚡🔴", na: false },
+  { name: "Gatorade - Blue",     category: "Drink",  price: 3.00, symbol: "⚡🔵", na: false },
+  { name: "Gatorade - Zero",     category: "Drink",  price: 3.00, symbol: "⚡⚪", na: false },
+  { name: "Pepsi",               category: "Drink",  price: 3.00, symbol: "🥤🔵", na: false },
+  { name: "Pepsi (Diet)",        category: "Drink",  price: 3.00, symbol: "🥤⚪", na: false },
+  { name: "Mountain Dew",        category: "Drink",  price: 3.00, symbol: "🏔️🟢", na: false },
+  { name: "Mountain Dew (Diet)", category: "Drink",  price: 3.00, symbol: "🏔️⚪", na: false },
+  { name: "Water",               category: "Drink",  price: 2.00, symbol: "💧",   na: true },
+  { name: "Small Water",         category: "Drink",  price: 1.00, symbol: "💧🤏", na: false },
 
-  { name: "Pickle",              category: "Snack",  price: 1.00, symbol: "🥒"   },
-  { name: "Popcorn",             category: "Snack",  price: 1.00, symbol: "🍿"   },
-  { name: "Pretzel",             category: "Snack",  price: 3.00, symbol: "🥨"   },
+  { name: "Pickle",              category: "Snack",  price: 1.00, symbol: "🥒",   na: false },
+  { name: "Popcorn",             category: "Snack",  price: 1.00, symbol: "🍿",   na: false },
+  { name: "Pretzel",             category: "Snack",  price: 3.00, symbol: "🥨",   na: false },
 ];
 
 /* ================================================================
@@ -695,7 +714,7 @@ function buildGrid(mode) {
     }
 
     const tile = document.createElement("div");
-    tile.className = "tile";
+    tile.className = "tile" + (item.na ? " not-available" : "");
     tile.dataset.index = i;
     tile.dataset.cat = item.category;
     tile.innerHTML = `
