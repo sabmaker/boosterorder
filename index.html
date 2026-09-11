@@ -149,7 +149,7 @@
     overflow: hidden;
   }
   .seg button {
-    flex: 1 1 0;
+    flex: 0 0 auto;
     padding: 10px 6px;
     font-size: 14px;
     font-weight: 600;
@@ -164,6 +164,49 @@
     background: var(--accent);
     color: var(--accent-fg);
   }
+
+  .search-wrap {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    min-width: 0;
+  }
+  .search-icon {
+    flex: 0 0 auto;
+    font-size: 16px;
+    padding: 0 6px 0 8px;
+    color: var(--muted);
+  }
+  .search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px 0 0 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    padding: 8px 8px;
+    outline: none;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-clear {
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 0 8px 8px 0;
+    background: var(--danger);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .search-clear:active { opacity: .7; }
 
   .collapse-row {
     display: flex;
@@ -416,7 +459,7 @@
   }
   .cat-badge:empty { display: none; }
 
-  .tile.hidden { display: none; }
+  .tile.hidden, .cat-head.hidden { display: none; }
 
   .dl-link {
     grid-column: 1 / -1;
@@ -501,10 +544,15 @@
   <div class="seg" id="sortSeg">
     <button type="button" data-sort="item">Sort: Item</button>
     <button type="button" data-sort="category">Sort: Category</button>
+    <div class="search-wrap" id="searchWrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="searchInput" type="text" placeholder="Filter items…">
+      <button class="search-clear" id="searchClear" type="button">✕</button>
+    </div>
   </div>
   <div class="collapse-row" id="collapseRow">
-    <button class="btn btn-sm" type="button" data-all="collapse">Collapse All</button>
-    <button class="btn btn-sm" type="button" data-all="expand">Expand All</button>
+    <button class="btn btn-sm" type="button" data-all="collapse"><span style="color:#1565c0;font-weight:700">−</span> Collapse All</button>
+    <button class="btn btn-sm" type="button" data-all="expand"><span style="color:#2e7d32;font-weight:700">+</span> Expand All</button>
   </div>
   <div class="summary-row">
     <button class="btn btn-summary" id="summaryBtn" type="button">📋 Summary</button>
@@ -514,7 +562,7 @@
 <main>
   <div class="grid" id="grid"></div>
   <div class="dl-link" id="offlineHint"></div>
-  <div class="dl-link">v1.05</div>
+  <div class="dl-link">v1.06</div>
 </main>
 
 <!-- Summary overlay -->
@@ -580,9 +628,12 @@ const ITEMS = [
 const qty = ITEMS.map(() => 0);
 
 let sortMode = "category";
-let collapsed = new Set();
+let searchFilter = "";
+const allCats = [...new Set(ITEMS.map(item => item.category))];
+let collapsed = new Set(allCats);
 try {
-  collapsed = new Set(JSON.parse(localStorage.getItem("boosterOrderCollapsed")) || []);
+  const stored = JSON.parse(localStorage.getItem("boosterOrderCollapsed"));
+  if (stored) collapsed = new Set(stored);
 } catch (e) {}
 
 const grid     = document.getElementById("grid");
@@ -597,6 +648,19 @@ const overlay    = document.getElementById("overlay");
 const closeBtn   = document.getElementById("closeBtn");
 const sheetBody  = document.getElementById("sheetBody");
 const sheetTotal = document.getElementById("sheetTotal");
+
+const searchInput = document.getElementById("searchInput");
+const searchClear = document.getElementById("searchClear");
+
+searchInput.addEventListener("input", () => {
+  searchFilter = searchInput.value.trim().toLowerCase();
+  render();
+});
+searchClear.addEventListener("click", () => {
+  searchInput.value = "";
+  searchFilter = "";
+  render();
+});
 
 const money = n => "$" + n.toFixed(2);
 
@@ -798,14 +862,17 @@ function render() {
   grid.querySelectorAll(".tile").forEach(tile => {
     const i = Number(tile.dataset.index);
     const cat = tile.dataset.cat;
-    total += qty[i] * ITEMS[i].price;
+    const item = ITEMS[i];
+    total += qty[i] * item.price;
     count += qty[i];
     catQty[cat] = (catQty[cat] || 0) + qty[i];
 
+    const matchesSearch = !searchFilter || item.name.toLowerCase().includes(searchFilter) || item.category.toLowerCase().includes(searchFilter);
+    const hideByCat = sortMode === "category" && collapsed.has(cat);
     tile.querySelector(".qty-num").textContent = qty[i];
     tile.querySelector(".qty-minus").disabled = qty[i] === 0;
     tile.classList.toggle("has-qty", qty[i] > 0);
-    tile.classList.toggle("hidden", sortMode === "category" && collapsed.has(cat));
+    tile.classList.toggle("hidden", !matchesSearch || hideByCat);
   });
 
   // Collapsed groups show a badge so hidden picks aren't forgotten
@@ -815,6 +882,14 @@ function render() {
     head.setAttribute("aria-expanded", isOpen);
     head.querySelector(".cat-badge").textContent =
       !isOpen && catQty[cat] ? catQty[cat] : "";
+    // Hide category header if no items match search
+    if (searchFilter) {
+      const hasMatch = ITEMS.some(item => item.category === cat &&
+        (item.name.toLowerCase().includes(searchFilter) || item.category.toLowerCase().includes(searchFilter)));
+      head.classList.toggle("hidden", !hasMatch);
+    } else {
+      head.classList.remove("hidden");
+    }
   });
 
   totalEl.textContent = money(total);
